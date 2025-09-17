@@ -1,0 +1,174 @@
+% compile this file with xelatex
+\documentclass[12pt]{article}
+\usepackage{graphicx}
+\usepackage[margin=2cm, a4paper]{geometry}
+\usepackage{setspace}
+\usepackage{pdfpages}
+\usepackage{float}
+\usepackage{ctex}
+\usepackage{amsmath}
+\usepackage{fancyvrb}
+\usepackage{amssymb}
+\usepackage{minted}
+% \usepackage{enumitem}
+\usepackage[shortlabels]{enumitem}
+\usepackage[colorlinks,linkcolor=blue]{hyperref}
+
+\usepackage{xeCJK}
+\setCJKmainfont{Noto Sans TC}
+
+\renewcommand{\contentsname}{Contents}
+\renewcommand{\figurename}{Figure}
+\renewcommand{\tablename}{Table}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,      
+    urlcolor=blue,
+}
+\newcommand{\mytitle}{Week2 出題練習HW - 偉大性格的射手}
+\newcommand{\myauthor}{第 16 組}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhead{}
+\fancyhead[L]{\mytitle}
+\fancyhead[R]{\myauthor}
+
+\title{\mytitle}
+\author{\textbf{\myauthor}}
+\date{Due: 2025/9/17}
+
+\begin{document}
+
+\onehalfspacing
+\maketitle
+
+\section{Problem}
+\subsection{說明}
+今年是英雄聯盟中國賽區（LPL）最有希望的一年，身為熱門實況主的JackeyLove正在他人生中第一次的世界賽舞台上對決來自北美賽區（LCS）的 Team Liquid，在隊上擔任射手（AD carry）這個職位的他，對於金錢的運用一定要嚴謹，與對手對線到殘血的他正要回城出裝，因為身上的錢 $M$ 不足以出一件大裝，但為了提升自己的能力而需要出兩件小裝作為過渡，商城裡總共有 $N$ 件小裝，價格分別為 $n_0,n_1,n_2,\dots,n_{N-1}$，為了讓自己數值最大化，請找出兩件裝備的價格之和等於自己身上的錢 $M$ 的唯一組合。
+\subsection{Input Format and Constraints}
+\begin{itemize}
+    \item $2 \le N \le 5*10^4$
+    \item $0\le n_0,n_1,\dots,n_{N-1} < M\le10^9$
+    \item 第一行有兩個數字 $N$ 與 $M$ 用一個空格隔開，分別代表商城內的裝備總數與自己身上有多少錢。
+    \item 第二行有 $N$ 個數字 $n_0,n_1,n_2,\dots,n_{N-1}$ 代表這 $N$ 件裝備的售價，且每件裝備的售價都不一樣。
+\end{itemize}
+\subsection{Output Format}
+只有一行，由小到大輸出兩件裝備的 index $A$ 與 $B$ (0-based)，使得 $n_A+n_B=M$  為唯一解，$A$ 與 $B$ 之間用一個空格隔開。
+\subsection{Sample Input 1}
+\begin{verbatim}    
+3 5
+2 3 1
+\end{verbatim}
+\subsection{Sample Output 1}
+\begin{verbatim}
+0 1
+\end{verbatim}
+\subsection{Sample Input 2}
+\begin{verbatim}
+5 10
+5 9 6 3 4
+\end{verbatim}
+\subsection{Sample Output 2}
+\begin{verbatim}    
+2 4
+\end{verbatim}
+\subsection{Sample Input 3}
+\begin{verbatim}
+10 20
+19 10 2 4 17 3 12 15 6 9
+\end{verbatim}
+\subsection{Sample Output 3}
+\begin{verbatim}
+4 5
+\end{verbatim}
+\section{Solution}
+這題的核心觀念是使用一個類似 hash table 功能的陣列 $ht$，來紀錄每個元素的 index (因為根據題目，每個元素都會是 unique 的)。
+
+但此題的 $n_i$ 太大了，所以我們需要透過一些手段來節省使用的 memory，在官方解答中，我們會找出 $n_i$ 中的 minimum 和 maximum，然後存每個元素的 index 時，扣掉 minimum (後面稱作 offset)。例如我們存 $n_i$ 的 index 為 $i$ 時，會紀錄為 $ht[n_i-offset]=i+1$。這樣可以讓 \texttt{calloc} 的大小限制在 \texttt{maximum-minimum+1} (單位是 \texttt{int})
+
+最後，我們 iterate 過陣列的每個元素，然後看 index 是 $m-n_i-offset$ 的元素是否存在 (即不為 $0$，因為 \texttt{calloc} 會給 $ht$ 每個元素0的初始值，所以是0代表沒這個元素) ，且 index 不為 $i+1$ (即 $n_i$ 自己)，如果存在即回傳該答案。
+
+整體而言，此演算法的時間複雜度會是 $O(N)$，因為我們必須遍歷過常數次的陣列，空間複雜度則為 $O(\max{n_i}-\min{n_i})$，$\max{n_i}$ 與 $\min{n_i}$ 分別為 $n_i,i\in\mathbb{N},i\in[0,N-1]$ 的最大值與最小值，因為我們必須建立 hash table $ht$，其大小為 $\max{n_i}-\min{n_i}+1$ 單位的 32-bit 整數。
+\section{Code}
+\begin{minted}[frame=lines,framesep=2mm,baselinestretch=1.2,linenos,breaklines]{C}
+#include <stdio.h>
+#include <stdlib.h>
+
+int *twoSum(int *nums, int n, int m)
+{
+    int max = nums[0], min = nums[0];
+    for (int i = 1; i < n; i++)
+    {
+        if (nums[i] > max)
+            max = nums[i];
+        else if (nums[i] < min)
+            min = nums[i];
+    }
+    int htsize = max - min + 1;
+    int *ht = calloc(htsize, sizeof(int));
+    int offset = min;
+
+    for (int i = 0; i < n; i++)
+    {
+        ht[nums[i] - offset] = i + 1;
+    }
+    int *retarray = malloc(2 * sizeof(int));
+    for (int i = 0; i < n; i++)
+    {
+
+        int leftidx = m - nums[i] - offset;
+        if (leftidx >= 0 && leftidx < htsize && ht[leftidx] && ht[leftidx] != (i + 1))
+        {
+            retarray[1] = ht[leftidx] - 1;
+            retarray[0] = i;
+            free(ht);
+            return retarray;
+        }
+    }
+    return 0;
+}
+int main()
+{
+    int n, m;
+    scanf("%d%d", &n, &m);
+    int *nums = malloc(n * sizeof(int));
+    for (int i = 0; i < n; i++)
+    {
+        scanf("%d", &nums[i]);
+    }
+    int *ans = twoSum(nums, n, m);
+    printf("%d %d\n", ans[0], ans[1]);
+
+    return 0;
+}
+\end{minted}
+\section{TestData}
+本題我們共安排 7 筆測試資料，它們被設計的目的如下所示:
+\begin{enumerate}[(a)]
+    \item subtask 0-3 (\texttt{[0-3].in}): 檢驗程式基本邏輯是否正確、能否給出正確的輸出。(Brute force is acceptable.) (50\%，$N<100,M<5*10^4,n_i<10^4$)
+    \item subtask 4-6 (\texttt{[4-6].in}): 輸出正確以外，也檢驗程式的空間安排是否正確，在 $N$ 與 $n_i$ 較大的情況下，不只使用 hash table 的概念來改善時間複雜度，也有使用 solution 中 offset 的手法來節省空間以符合 memory 的規範。(50\%, 除測資符合題目範圍外無任何限制)
+\end{enumerate}
+\section{Teamwork}
+\begin{itemize}
+    \item 題目設計/包裝與題解: 林有諒、陳昫叡
+    \item 測資設計、驗題: 李國鈺、吳宥勳
+    \item 校對測試、書面報告: 賴昱錡
+\end{itemize}
+\section{Reference}
+本題的發想來自 \href{https://leetcode.com/problems/two-sum/description/}{LeetCode 1.Two Sum}，但修改了原本題目的條件 (每個元素變成都要是 unique 的)、constraints、測資範圍與題目包裝。
+
+
+
+\end{document}
+% how to display codes?
+% \begin{minted}[frame=lines,framesep=2mm,baselinestretch=1.2,linenos,breaklines]{python}
+% \end{minted}
+
+% how to display images?
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.5\linewidth]{}
+%     \caption{Caption}
+% \end{figure}
+% test
